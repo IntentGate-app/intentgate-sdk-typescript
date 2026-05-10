@@ -1,0 +1,61 @@
+{
+  "name": "@netgnarus/intentgate",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the IntentGate authorization gateway. Three lines to wrap any agent's tool call with capability + intent + policy + budget checks. Zero runtime dependencies (uses native fetch and node:crypto).",
+  "license": "Apache-2.0",
+  "author": "IntentGate contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NetGnarus/intentgate-sdk-typescript"
+  },
+  "homepage": "https://github.com/NetGnarus/intentgate-sdk-typescript",
+  "bugs": {
+    "url": "https://github.com/NetGnarus/intentgate-sdk-typescript/issues"
+  },
+  "keywords": [
+    "intentgate",
+    "ai-agents",
+    "authorization",
+    "mcp",
+    "capability-tokens",
+    "macaroons",
+    "opa",
+    "agent-security"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
