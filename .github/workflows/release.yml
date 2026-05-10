@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0). Must already exist on the repo."
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build dist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify package.json version matches tag
+        # The tag is vX.Y.Z; package.json should report X.Y.Z. Catch the
+        # "forgot to bump version" mistake before we publish a half-tagged
+        # release.
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          if [ -n "${{ inputs.tag }}" ]; then
+            tag="${{ inputs.tag }}"
+            tag="${tag#v}"
+          fi
+          pkg=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag $tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "version: $pkg"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  publish-npm:
+    name: Publish to npm (trusted publishing)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # npm trusted publishing requires:
+    #   - id-token: write           (OIDC token exchange with npm)
+    #   - the workflow configured as a Trusted Publisher on the npm
+    #     package settings page (one-time manual step on npmjs.com).
+    # Once that's wired, no NPM_TOKEN secret is needed and every
+    # published artifact carries a provenance attestation linking it
+    # back to this exact workflow + commit.
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@netgnarus/intentgate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish (provenance, public access)
+        # --provenance attaches a SLSA-shaped attestation linking the
+        # published tarball to this workflow run + commit SHA. Free
+        # supply-chain signal for consumers and registries.
+        # --access public is required for first publish of a scoped
+        # name (@netgnarus/...) on npm; subsequent publishes inherit.
+        run: npm publish --provenance --access public
