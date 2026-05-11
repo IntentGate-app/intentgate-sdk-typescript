@@ -151,6 +151,10 @@ npm run build
 
 Pre-publish runs all of the above; `npm run build` produces `dist/index.js` (ESM), `dist/index.cjs` (CommonJS), and `dist/index.d.ts` (types).
 
+## Releasing
+
+Maintainers: see [`RELEASING.md`](RELEASING.md) for the one-time npm trusted-publisher setup and the tag-to-publish workflow.
+
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
