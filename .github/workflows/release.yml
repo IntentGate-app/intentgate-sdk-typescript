@@ -40,10 +40,16 @@ jobs:
         # The tag is vX.Y.Z; package.json should report X.Y.Z. Catch the
         # "forgot to bump version" mistake before we publish a half-tagged
         # release.
+        env:
+          # Pass the template expansion through an env var so the
+          # untrusted input never lands directly in the shell script.
+          # Mitigates the shell-injection class flagged by Semgrep's
+          # github-actions.security.run-shell-injection rule.
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           tag="${GITHUB_REF#refs/tags/v}"
-          if [ -n "${{ inputs.tag }}" ]; then
-            tag="${{ inputs.tag }}"
+          if [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
             tag="${tag#v}"
           fi
           pkg=$(node -p "require('./package.json').version")
