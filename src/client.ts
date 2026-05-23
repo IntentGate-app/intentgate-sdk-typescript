@@ -119,7 +119,14 @@ export class Gateway {
       throw new Error("Gateway: url is required");
     }
     // Trailing-slash tolerant; we always append explicit paths.
-    this.url = url.replace(/\/+$/, "");
+    // Loop instead of regex (`url.replace(/\/+$/, "")`) so we silence
+    // CodeQL's polynomial-regex-on-uncontrolled-data warning. The
+    // regex wasn't actually exploitable here (anchored, single-char
+    // class, no backtracking), but a plain loop has no ReDoS class
+    // at all.
+    let cleaned = url;
+    while (cleaned.endsWith("/")) cleaned = cleaned.slice(0, -1);
+    this.url = cleaned;
     this.token = opts.token;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetchImpl = opts.fetch ?? globalThis.fetch;
