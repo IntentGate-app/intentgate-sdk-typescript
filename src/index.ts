@@ -52,5 +52,21 @@ export {
   IntentGateError,
   PolicyError,
   ProtocolError,
+  ProvenanceError,
   forCode,
 } from "./errors.js";
+
+export {
+  MemoryStore,
+  MemoryProvenanceError,
+  SESSION_KEY_SIZE,
+  ZERO_HASH,
+  canonical,
+  deriveSessionKey,
+  sign,
+  verify,
+  verifyChain,
+  type Envelope,
+  type MemoryReadHook,
+  type MemoryWriteHook,
+} from "./memory.js";

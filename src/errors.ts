@@ -13,6 +13,7 @@
  *   IntentError         -32011
  *   PolicyError         -32012
  *   BudgetError         -32013
+ *   ProvenanceError     -32014  (opt-in, AAI03 memory-poisoning defense)
  *
  * Anything else (parse errors, method not found, internal errors) is
  * a `ProtocolError`. Network and HTTP transport failures (timeouts,
@@ -105,11 +106,29 @@ export class BudgetError extends IntentGateError {
   }
 }
 
+/**
+ * Provenance stage denied: the opt-in AAI03 memory-poisoning defense
+ * rejected the call. Raised when the X-Intent-Memory-Provenance header
+ * carries an entry whose HMAC does not verify, whose prev_hash chain
+ * is broken, or whose envelope is structurally malformed.
+ *
+ * JSON-RPC code -32014. Only emitted by gateways with provenance
+ * enabled (INTENTGATE_PROVENANCE_ENABLED=true); not raised against
+ * the default four-check pipeline.
+ */
+export class ProvenanceError extends IntentGateError {
+  constructor(message: string, opts?: { code?: number; data?: unknown; cause?: unknown }) {
+    super(message, opts);
+    this.name = "ProvenanceError";
+  }
+}
+
 const CODE_TO_CLASS: Record<number, typeof IntentGateError> = {
   [-32010]: CapabilityError,
   [-32011]: IntentError,
   [-32012]: PolicyError,
   [-32013]: BudgetError,
+  [-32014]: ProvenanceError,
 };
 
 /**

@@ -69,6 +69,25 @@ export interface ToolCallOptions {
    * per-instance counter — fine for most agents.
    */
   requestId?: number | string;
+
+  /**
+   * Optional list of memory entry IDs that influenced this tool call.
+   * When supplied together with `memoryStore`, the SDK looks up the
+   * corresponding signed envelopes and packs them into the
+   * `X-Intent-Memory-Provenance` header. The gateway re-derives the
+   * session signing key from the capability token's jti, verifies
+   * each HMAC, and walks the chain — closing the sophisticated AAI03
+   * (Memory Poisoning) case. Used only when the gateway has
+   * provenance enabled; otherwise the header is ignored. See
+   * `MemoryStore`.
+   */
+  memoryProvenance?: readonly string[];
+
+  /**
+   * MemoryStore instance the SDK queries for the envelopes named in
+   * `memoryProvenance`. Required iff `memoryProvenance` is non-empty.
+   */
+  memoryStore?: import("./memory.js").MemoryStore;
 }
 
 export interface GatewayOptions {
@@ -170,6 +189,22 @@ export class Gateway {
     }
     if (opts.intentPrompt) {
       headers["X-Intent-Prompt"] = opts.intentPrompt;
+    }
+    if (opts.memoryProvenance && opts.memoryProvenance.length > 0) {
+      if (!opts.memoryStore) {
+        throw new Error(
+          "toolCall: memoryProvenance is non-empty but memoryStore is undefined; " +
+            "supply a MemoryStore so the SDK can look up the envelopes",
+        );
+      }
+      // Look up envelopes (verifies each locally), serialize the
+      // wire entries, then base64url-encode the JSON array. Matches
+      // the gateway's parser shape in
+      // gateway/internal/handlers/mcp_provenance.go.
+      const wireEntries = opts.memoryStore.provenanceFor(opts.memoryProvenance);
+      headers["X-Intent-Memory-Provenance"] = Buffer.from(JSON.stringify(wireEntries)).toString(
+        "base64url",
+      );
     }
 
     const controller = new AbortController();
