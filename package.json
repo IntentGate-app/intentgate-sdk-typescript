@@ -1,6 +1,6 @@
 {
   "name": "@intentgate-app/intentgate",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "TypeScript SDK for the IntentGate authorization gateway. Three lines to wrap any agent's tool call with capability + intent + policy + budget checks. Zero runtime dependencies (uses native fetch and node:crypto).",
   "license": "Apache-2.0",
   "author": "IntentGate contributors",
