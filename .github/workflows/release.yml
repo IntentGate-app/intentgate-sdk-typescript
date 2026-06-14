@@ -114,6 +114,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Upgrade npm to trusted-publisher-capable version
+        # npm trusted publishing (OIDC-based auth against the registry)
+        # requires npm CLI >= 11.5.1. Node 20 bundles npm 10.x, which
+        # signs provenance over OIDC but still tries to PUT with
+        # NODE_AUTH_TOKEN — producing a misleading 404. Pin to the
+        # latest 11.x line so publishes authenticate via the trusted
+        # publisher we configured on npmjs.com.
+        run: npm install -g npm@latest
+
       - name: Publish (provenance, public access)
         # --provenance attaches a SLSA-shaped attestation linking the
         # published tarball to this workflow run + commit SHA. Free
