@@ -1,16 +1,16 @@
 # IntentGate TypeScript SDK
 
-[![CI](https://github.com/NetGnarus/intentgate-sdk-typescript/actions/workflows/ci.yml/badge.svg)](https://github.com/NetGnarus/intentgate-sdk-typescript/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@netgnarus/intentgate.svg)](https://www.npmjs.com/package/@netgnarus/intentgate)
+[![CI](https://github.com/IntentGate-app/intentgate-sdk-typescript/actions/workflows/ci.yml/badge.svg)](https://github.com/IntentGate-app/intentgate-sdk-typescript/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@intentgate-app/intentgate.svg)](https://www.npmjs.com/package/@intentgate-app/intentgate)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node 18+](https://img.shields.io/badge/node-%3E=18-339933.svg)](package.json)
 
-TypeScript SDK for the [IntentGate](https://github.com/NetGnarus/intentgate-gateway) authorization gateway.
+TypeScript SDK for the [IntentGate](https://github.com/IntentGate-app/intentgate-gateway) authorization gateway.
 
 Three lines wraps any agent's tool call with capability + intent + policy + budget checks:
 
 ```ts
-import { Gateway } from "@netgnarus/intentgate";
+import { Gateway } from "@intentgate-app/intentgate";
 
 const gw = new Gateway("http://localhost:8080", {
   token: process.env.INTENTGATE_TOKEN,
@@ -30,11 +30,11 @@ const result = await gw.toolCall("read_invoice", {
 ## Install
 
 ```sh
-npm install @netgnarus/intentgate
+npm install @intentgate-app/intentgate
 # or
-pnpm add @netgnarus/intentgate
+pnpm add @intentgate-app/intentgate
 # or
-yarn add @netgnarus/intentgate
+yarn add @intentgate-app/intentgate
 ```
 
 Requires **Node 18+**. Works in browsers and edge runtimes that provide `fetch` and a `crypto.subtle`-equivalent (call sites that use `attenuate` need `node:crypto` so are Node-only today; `Gateway.toolCall` is portable).
@@ -53,7 +53,7 @@ Requires **Node 18+**. Works in browsers and edge runtimes that provide `fetch` 
 A parent agent can derive a narrower token for a sub-agent in one call. The chained-HMAC signature means the sub-agent can't widen the chain — only narrow it further:
 
 ```ts
-import { attenuate } from "@netgnarus/intentgate";
+import { attenuate } from "@intentgate-app/intentgate";
 
 // Parent token allows [search, read, email] for the next hour.
 // Child: only [search, read], one call max.
@@ -78,7 +78,7 @@ Available narrowings:
 ## Error handling
 
 ```ts
-import { Gateway, CapabilityError, IntentError, GatewayError } from "@netgnarus/intentgate";
+import { Gateway, CapabilityError, IntentError, GatewayError } from "@intentgate-app/intentgate";
 
 try {
   const result = await gw.toolCall("delete_user", {
@@ -108,7 +108,7 @@ The SDK accepts a custom `fetch` implementation via the `fetch` option, so you c
 
 ```ts
 import { vi } from "vitest";
-import { Gateway } from "@netgnarus/intentgate";
+import { Gateway } from "@intentgate-app/intentgate";
 
 const fakeFetch = vi.fn().mockResolvedValue(
   new Response(JSON.stringify({
@@ -120,16 +120,16 @@ const fakeFetch = vi.fn().mockResolvedValue(
 const gw = new Gateway("http://gw.test", { fetch: fakeFetch });
 ```
 
-For higher fidelity, run the gateway in a container (`ghcr.io/netgnarus/intentgate-gateway:latest`) and point the SDK at it.
+For higher fidelity, run the gateway in a container (`ghcr.io/intentgate-app/intentgate-gateway:latest`) and point the SDK at it.
 
 ## Companion repositories
 
 | Repo | What |
 | --- | --- |
-| [intentgate-gateway](https://github.com/NetGnarus/intentgate-gateway) | The Go gateway this SDK talks to |
-| [intentgate-sdk-python](https://github.com/NetGnarus/intentgate-sdk-python) | Python equivalent (byte-compatible attenuation) |
-| [intentgate-helm](https://github.com/NetGnarus/intentgate-helm) | Helm chart for cluster deployment |
-| [intentgate-extractor](https://github.com/NetGnarus/intentgate-extractor) | Intent extractor service |
+| [intentgate-gateway](https://github.com/IntentGate-app/intentgate-gateway) | The Go gateway this SDK talks to |
+| [intentgate-sdk-python](https://github.com/IntentGate-app/intentgate-sdk-python) | Python equivalent (byte-compatible attenuation) |
+| [intentgate-helm](https://github.com/IntentGate-app/intentgate-helm) | Helm chart for cluster deployment |
+| [intentgate-extractor](https://github.com/IntentGate-app/intentgate-extractor) | Intent extractor service |
 
 ## Compatibility
 

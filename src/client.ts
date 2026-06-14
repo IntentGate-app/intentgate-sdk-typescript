@@ -115,7 +115,7 @@ export interface GatewayOptions {
  *
  * @example
  * ```ts
- * import { Gateway } from "@netgnarus/intentgate";
+ * import { Gateway } from "@intentgate-app/intentgate";
  *
  * const gw = new Gateway("http://localhost:8080", {
  *   token: process.env.INTENTGATE_TOKEN,

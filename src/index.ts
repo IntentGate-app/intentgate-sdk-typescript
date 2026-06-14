@@ -1,12 +1,12 @@
 /**
- * @netgnarus/intentgate — TypeScript SDK for the IntentGate gateway.
+ * @intentgate-app/intentgate — TypeScript SDK for the IntentGate gateway.
  *
  * The intent of this package is the "three lines of agent code"
  * promise from the IntentGate pitch:
  *
  * @example
  * ```ts
- * import { Gateway } from "@netgnarus/intentgate";
+ * import { Gateway } from "@intentgate-app/intentgate";
  *
  * const gw = new Gateway("http://localhost:8080", {
  *   token: process.env.INTENTGATE_TOKEN,

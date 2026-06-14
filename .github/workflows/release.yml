@@ -95,7 +95,7 @@ jobs:
       id-token: write
     environment:
       name: npm
-      url: https://www.npmjs.com/package/@netgnarus/intentgate
+      url: https://www.npmjs.com/package/@intentgate-app/intentgate
     steps:
       - uses: actions/checkout@v4
         with:
@@ -119,5 +119,5 @@ jobs:
         # published tarball to this workflow run + commit SHA. Free
         # supply-chain signal for consumers and registries.
         # --access public is required for first publish of a scoped
-        # name (@netgnarus/...) on npm; subsequent publishes inherit.
+        # name (@intentgate-app/...) on npm; subsequent publishes inherit.
         run: npm publish --provenance --access public

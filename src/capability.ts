@@ -207,7 +207,7 @@ export interface AttenuateOptions {
  *
  * @example
  * ```ts
- * import { attenuate } from "@netgnarus/intentgate";
+ * import { attenuate } from "@intentgate-app/intentgate";
  *
  * // Parent token: agent allowed [search, read, email] for 1h.
  * // Child: only [search, read], one call max.
