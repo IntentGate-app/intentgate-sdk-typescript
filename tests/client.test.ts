@@ -13,6 +13,8 @@ import {
   GatewayError,
   IntentError,
   PolicyError,
+  ROUTE_MCP_GOVERNED,
+  ROUTE_MCP_LEGACY,
 } from "../src/index.js";
 
 function makeOkResponse(extra: Record<string, unknown> = {}): Response {
@@ -51,6 +53,7 @@ describe("Gateway.toolCall", () => {
   it("sends the JSON-RPC envelope with auth + intent prompt headers", async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeOkResponse());
     const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_LEGACY,
       token: "tok-abc",
       fetch: fakeFetch as typeof fetch,
     });
@@ -85,7 +88,12 @@ describe("Gateway.toolCall", () => {
 
   it("strips trailing slash from gateway URL", async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeOkResponse());
-    const gw = new Gateway("http://gw.example/", { fetch: fakeFetch as typeof fetch });
+    // S4-WP-22: the route is now named rather than defaulted. This test's subject is URL
+    // construction, so it names the LEGACY route — the one it was written against — and its
+    // assertion below is unchanged. Migrating it to the governed route would have altered
+    // what it proves while appearing to be a mechanical edit.
+    const gw = new Gateway("http://gw.example/", {
+      route: ROUTE_MCP_LEGACY, fetch: fakeFetch as typeof fetch });
     await gw.toolCall("noop");
     const [url] = fakeFetch.mock.calls[0] as [string];
     expect(url).toBe("http://gw.example/v1/mcp");
@@ -94,6 +102,7 @@ describe("Gateway.toolCall", () => {
   it("throws CapabilityError on -32010", async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeRpcError(-32010, "token expired"));
     const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED,
       token: "tok",
       fetch: fakeFetch as typeof fetch,
     });
@@ -102,19 +111,22 @@ describe("Gateway.toolCall", () => {
 
   it("throws IntentError on -32011", async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeRpcError(-32011));
-    const gw = new Gateway("http://gw.example", { fetch: fakeFetch as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
     await expect(gw.toolCall("any")).rejects.toBeInstanceOf(IntentError);
   });
 
   it("throws PolicyError on -32012", async () => {
     const fakeFetch = vi.fn().mockResolvedValue(makeRpcError(-32012));
-    const gw = new Gateway("http://gw.example", { fetch: fakeFetch as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
     await expect(gw.toolCall("any")).rejects.toBeInstanceOf(PolicyError);
   });
 
   it("translates a transport failure into GatewayError", async () => {
     const fakeFetch = vi.fn().mockRejectedValue(new TypeError("ECONNREFUSED"));
-    const gw = new Gateway("http://gw.example", { fetch: fakeFetch as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
     await expect(gw.toolCall("any")).rejects.toBeInstanceOf(GatewayError);
   });
 
@@ -122,12 +134,14 @@ describe("Gateway.toolCall", () => {
     const fakeFetch = vi.fn().mockResolvedValue(
       new Response("server unhappy", { status: 502 }),
     );
-    const gw = new Gateway("http://gw.example", { fetch: fakeFetch as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
     await expect(gw.toolCall("any")).rejects.toBeInstanceOf(GatewayError);
   });
 
   it("rejects an empty tool name early", async () => {
-    const gw = new Gateway("http://gw.example", { fetch: vi.fn() as unknown as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: vi.fn() as unknown as typeof fetch });
     await expect(gw.toolCall("")).rejects.toThrow(/tool is required/);
   });
 
@@ -136,7 +150,8 @@ describe("Gateway.toolCall", () => {
     // would resolve with the SAME object every time, and .json() consumes
     // the body — the second toolCall would then 500-equivalent.)
     const fakeFetch = vi.fn().mockImplementation(() => Promise.resolve(makeOkResponse()));
-    const gw = new Gateway("http://gw.example", { fetch: fakeFetch as typeof fetch });
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
     await gw.toolCall("a");
     await gw.toolCall("b");
     const ids = fakeFetch.mock.calls.map((c) => {

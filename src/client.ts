@@ -90,7 +90,73 @@ export interface ToolCallOptions {
   memoryStore?: import("./memory.js").MemoryStore;
 }
 
+/** The legacy capability/bundle enforcement route. */
+export const ROUTE_MCP_LEGACY = "/v1/mcp";
+
+/** The governed BA-/IG- enforcement route, where the control-plane decision is the sole authority. */
+export const ROUTE_MCP_GOVERNED = "/v1/mcp/ig";
+
+/**
+ * Raised when a Gateway is constructed without choosing a route.
+ *
+ *   [FROZEN] ODR-R1-018 (TIER_1): "NO ROUTE DEFAULT."
+ *
+ * The readiness report gives the reason in one clause: make it a required constructor argument
+ * "so no consumer is silently moved between an audited and an unaudited path". /v1/mcp and
+ * /v1/mcp/ig are not two spellings of one thing — the first runs the legacy capability/bundle
+ * pipeline, the second is governed solely by the BA-/IG- chain. A default would move every
+ * consumer from one authority to the other on an upgrade, and none of them would read a
+ * changelog entry about it.
+ *
+ * THIS IS A BREAKING CHANGE AND IT IS SUPPOSED TO BE. A migration that fails at construction is
+ * a migration somebody performs; a migration that succeeds silently is one that happens to
+ * them.
+ */
+export class RouteNotChosenError extends IntentGateError {
+  constructor() {
+    super(
+      "Gateway: `route` is required and has no default. Choose ROUTE_MCP_GOVERNED " +
+        `("${ROUTE_MCP_GOVERNED}", the governed BA-/IG- chain) or ROUTE_MCP_LEGACY ` +
+        `("${ROUTE_MCP_LEGACY}", the legacy capability/bundle pipeline). They are different ` +
+        "authorities and the choice is yours to make, not this SDK's.",
+      { code: 0 },
+    );
+    this.name = "RouteNotChosenError";
+  }
+}
+
+/**
+ * Raised when the chosen route is not mounted on this gateway.
+ *
+ * A distinct type rather than a GatewayError with a 404 in it, because the two are acted on
+ * differently: this one is fixed in configuration and never by a policy change, and it must
+ * never be mistaken for the gateway refusing the call.
+ */
+export class RouteNotFoundError extends IntentGateError {
+  readonly route: string;
+  constructor(route: string, detail?: unknown) {
+    super(
+      `gateway has no route ${route}: this is a configuration outcome, not a denial. ` +
+        `Check the route passed to the Gateway constructor against what this deployment mounts.`,
+      { code: 0, data: detail },
+    );
+    this.name = "RouteNotFoundError";
+    this.route = route;
+  }
+}
+
 export interface GatewayOptions {
+  /**
+   * WHICH ENFORCEMENT ROUTE THIS CLIENT TALKS TO. Required; there is no default.
+   *
+   * See {@link RouteNotChosenError}. Use {@link ROUTE_MCP_GOVERNED} or
+   * {@link ROUTE_MCP_LEGACY}; any other path is accepted so a deployment can mount the
+   * gateway elsewhere, and a 404 from it is reported as a configuration outcome rather than
+   * as a denial — "the route is wrong" and "the policy said no" are different facts and only
+   * one of them is fixed by editing config.
+   */
+  route: string;
+
   /**
    * Capability token from `igctl mint` or your tenant's mint service.
    * When omitted, no Authorization header is sent and the gateway
@@ -118,6 +184,7 @@ export interface GatewayOptions {
  * import { Gateway } from "@intentgate-app/intentgate";
  *
  * const gw = new Gateway("http://localhost:8080", {
+ *   route: ROUTE_MCP_GOVERNED,
  *   token: process.env.INTENTGATE_TOKEN,
  * });
  * const result = await gw.toolCall("read_invoice", {
@@ -128,14 +195,21 @@ export interface GatewayOptions {
  */
 export class Gateway {
   private readonly url: string;
+  /** The chosen enforcement route. No default; see RouteNotChosenError. */
+  readonly route: string;
   private readonly token: string | undefined;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private nextId = 1;
 
-  constructor(url: string, opts: GatewayOptions = {}) {
+  constructor(url: string, opts: GatewayOptions) {
     if (!url) {
       throw new Error("Gateway: url is required");
+    }
+    // Checked at RUNTIME as well as in the type, because a JavaScript consumer has no type to
+    // stop them and is exactly the consumer this refusal exists for.
+    if (!opts || typeof opts.route !== "string" || opts.route.trim() === "") {
+      throw new RouteNotChosenError();
     }
     // Trailing-slash tolerant; we always append explicit paths.
     // Loop instead of regex (`url.replace(/\/+$/, "")`) so we silence
@@ -146,6 +220,7 @@ export class Gateway {
     let cleaned = url;
     while (cleaned.endsWith("/")) cleaned = cleaned.slice(0, -1);
     this.url = cleaned;
+    this.route = opts.route;
     this.token = opts.token;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetchImpl = opts.fetch ?? globalThis.fetch;
@@ -212,7 +287,7 @@ export class Gateway {
 
     let resp: Response;
     try {
-      resp = await this.fetchImpl(`${this.url}/v1/mcp`, {
+      resp = await this.fetchImpl(`${this.url}${this.route}`, {
         method: "POST",
         body,
         headers,
@@ -228,6 +303,17 @@ export class Gateway {
       throw new GatewayError(msg, { cause });
     } finally {
       clearTimeout(timer);
+    }
+
+    if (resp.status === 404) {
+      // S4-WP-22. A 404 ON THE CHOSEN ROUTE IS A CONFIGURATION FACT, NOT A DENIAL.
+      //
+      // The generic branch below would report it as a GatewayError like any other non-2xx,
+      // and an operator reading "gateway returned HTTP 404" alongside a run of blocked calls
+      // has every reason to think the gateway is refusing them. "The route is wrong" and "the
+      // policy said no" are different facts and only one of them is fixed by editing config.
+      const text = await safeText(resp);
+      throw new RouteNotFoundError(this.route, text || resp.statusText);
     }
 
     if (!resp.ok) {

@@ -10,9 +10,13 @@ TypeScript SDK for the [IntentGate](https://github.com/IntentGate-app/intentgate
 Three lines wraps any agent's tool call with capability + intent + policy + budget checks:
 
 ```ts
-import { Gateway } from "@intentgate-app/intentgate";
+import { Gateway, ROUTE_MCP_GOVERNED } from "@intentgate-app/intentgate";
 
 const gw = new Gateway("http://localhost:8080", {
+  // Required, no default (ODR-R1-018): /v1/mcp/ig is governed solely by the BA-/IG- chain,
+  // /v1/mcp runs the legacy capability/bundle pipeline. They are different authorities and
+  // the SDK will not choose for you.
+  route: ROUTE_MCP_GOVERNED,
   token: process.env.INTENTGATE_TOKEN,
 });
 const result = await gw.toolCall("read_invoice", {
@@ -108,7 +112,7 @@ The SDK accepts a custom `fetch` implementation via the `fetch` option, so you c
 
 ```ts
 import { vi } from "vitest";
-import { Gateway } from "@intentgate-app/intentgate";
+import { Gateway, ROUTE_MCP_GOVERNED } from "@intentgate-app/intentgate";
 
 const fakeFetch = vi.fn().mockResolvedValue(
   new Response(JSON.stringify({
@@ -117,7 +121,7 @@ const fakeFetch = vi.fn().mockResolvedValue(
     result: { content: [{ type: "text", text: "ok" }], isError: false },
   })),
 );
-const gw = new Gateway("http://gw.test", { fetch: fakeFetch });
+const gw = new Gateway("http://gw.test", { route: ROUTE_MCP_GOVERNED, fetch: fakeFetch });
 ```
 
 For higher fidelity, run the gateway in a container (`ghcr.io/intentgate-app/intentgate-gateway:latest`) and point the SDK at it.

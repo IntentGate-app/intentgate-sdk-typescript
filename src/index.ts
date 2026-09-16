@@ -28,6 +28,10 @@
 
 export {
   Gateway,
+  ROUTE_MCP_GOVERNED,
+  ROUTE_MCP_LEGACY,
+  RouteNotChosenError,
+  RouteNotFoundError,
   type ContentBlock,
   type GatewayOptions,
   type IntentGateMetadata,
@@ -70,3 +74,33 @@ export {
   type MemoryReadHook,
   type MemoryWriteHook,
 } from "./memory.js";
+
+// S4-WP-22 — the value-returning decision contract (ODR-R1-018), alongside the exception
+// hierarchy rather than replacing it: an obtained answer is a VALUE, and an exception is
+// reserved for the state in which no answer exists.
+export {
+  ANSWER_REFUSALS,
+  ASSERTION_CLASSES,
+  AUTHORITY_KINDS,
+  CANONICAL_ANSWER_VERSION,
+  Decision,
+  NEGOTIATION_HEADER,
+  NotPermittedError,
+  UnavailableError,
+  VERDICTS,
+  validateAnswer,
+  type AbsentMaterial,
+  type AnswerRefusal,
+  type AnswerWire,
+  type Asserted,
+  type Authority,
+  type AuthorityKind,
+  type AssertionClass,
+  type BatchDecision,
+  type Bound,
+  type Lineage,
+  type Obligation,
+  type Reason,
+  type Validity,
+  type Verdict,
+} from "./decision.js";
