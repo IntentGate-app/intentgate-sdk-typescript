@@ -21,6 +21,11 @@ import {
   ProtocolError,
   forCode,
 } from "./errors.js";
+import {
+  CANONICAL_ANSWER_VERSION,
+  NEGOTIATION_HEADER,
+  UnavailableError,
+} from "./decision.js";
 
 const TOOLS_CALL_METHOD = "tools/call";
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -258,6 +263,18 @@ export class Gateway {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      // S4-WP-22 AC-1. ASK FOR THE CONTRACT, ALWAYS.
+      //
+      //     [FROZEN] ODR-R1-053: "An unhonoured IGA/1 negotiation produces an EXPLICIT
+      //     fallback, never a silent one."
+      //
+      // Measured 2026-09-20: this header was DEFINED and EXPORTED by both SDKs and sent by
+      // neither, and `answer.Negotiate` in the gateway has no callers outside its own tests. So
+      // today every negotiation is unhonoured — which is precisely the case the ruling is about.
+      // Sending it is what makes the fallback observable: a server that ignores it yields a
+      // decision carrying `contractNegotiated: false` and a stated reason, instead of a legacy
+      // answer nobody can tell apart from an honoured one.
+      [NEGOTIATION_HEADER]: CANONICAL_ANSWER_VERSION,
     };
     if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
@@ -300,7 +317,10 @@ export class Gateway {
       const msg = isAbort
         ? `gateway timed out after ${this.timeoutMs}ms`
         : `transport error reaching gateway: ${stringifyCause(cause)}`;
-      throw new GatewayError(msg, { cause });
+      // ODR-R1-018: UNAVAILABLE is an OUTCOME. The gateway could not be asked, so no answer
+      // exists — a different fact from an answer that denied. UnavailableError extends
+      // GatewayError, so code catching the older name is unaffected.
+      throw new UnavailableError(msg, { cause });
     } finally {
       clearTimeout(timer);
     }
@@ -327,7 +347,9 @@ export class Gateway {
     try {
       payload = await resp.json();
     } catch (cause) {
-      throw new GatewayError("non-JSON response from gateway", { cause });
+      // The other half of the same outcome: it answered something unreadable, so again no
+      // answer exists. The class's own doc comment names both cases.
+      throw new UnavailableError("non-JSON response from gateway", { cause });
     }
 
     return parseResponse(payload);

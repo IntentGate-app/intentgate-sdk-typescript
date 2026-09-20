@@ -32,7 +32,7 @@
  * and those have opposite remedies — one is retried, the other is not.
  */
 
-import { IntentGateError } from "./errors.js";
+import { GatewayError, IntentGateError } from "./errors.js";
 
 /** The contract this SDK speaks. Matches `answer.CanonicalAnswerVersion` in the gateway. */
 export const CANONICAL_ANSWER_VERSION = "IGA/1";
@@ -182,10 +182,28 @@ export class NotPermittedError extends IntentGateError {
   }
 }
 
-/** Raised when the gateway could not be asked, or answered something this SDK cannot read. */
-export class UnavailableError extends IntentGateError {
-  constructor(message: string, data?: unknown) {
-    super(message, { code: 0, data });
+/**
+ * Raised when the gateway could not be asked, or answered something this SDK cannot read.
+ *
+ * An OUTCOME, not a verdict. It says nothing about the authority, only about the exchange.
+ *
+ *     [FROZEN] ODR-R1-018: "NO ROUTE DEFAULT. UNAVAILABLE remains an OUTCOME, never another
+ *     durable verdict."
+ *
+ * ## WHY IT EXTENDS `GatewayError` RATHER THAN SITTING BESIDE IT
+ *
+ * Measured 2026-09-20: this class was exported and thrown NOWHERE, while `GatewayError` was
+ * documented as "Network or transport failure reaching the gateway" — the same meaning. Two
+ * classes for one outcome, and the throw went to the one the ruling does not name.
+ *
+ * Extending is what lets the ruled outcome be thrown without breaking a caller that catches the
+ * older name. `catch (e) { if (e instanceof GatewayError) }` still catches an unavailable
+ * exchange; `instanceof UnavailableError` now distinguishes "no answer exists" from "the gateway
+ * answered and the answer was an error", which is the distinction the ruling preserves.
+ */
+export class UnavailableError extends GatewayError {
+  constructor(message: string, opts?: { data?: unknown; cause?: unknown }) {
+    super(message, { code: 0, ...(opts ?? {}) });
     this.name = "UnavailableError";
   }
 }

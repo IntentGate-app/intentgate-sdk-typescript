@@ -15,6 +15,9 @@ import {
   PolicyError,
   ROUTE_MCP_GOVERNED,
   ROUTE_MCP_LEGACY,
+  UnavailableError,
+  NEGOTIATION_HEADER,
+  CANONICAL_ANSWER_VERSION,
 } from "../src/index.js";
 
 function makeOkResponse(extra: Record<string, unknown> = {}): Response {
@@ -159,5 +162,74 @@ describe("Gateway.toolCall", () => {
       return (JSON.parse(init.body as string) as Record<string, unknown>)["id"];
     });
     expect(ids).toEqual([1, 2]);
+  });
+});
+
+/**
+ * S4-WP-22 · negotiation and the UNAVAILABLE outcome — the TypeScript half.
+ *
+ * Held in parity with sdk-python's tests of the same name. Two frozen rulings, and until
+ * 2026-09-20 neither was wired in either SDK:
+ *
+ *   ODR-R1-053  "An unhonoured IGA/1 negotiation produces an EXPLICIT fallback, never a
+ *               silent one."
+ *   ODR-R1-018  "NO ROUTE DEFAULT. UNAVAILABLE remains an OUTCOME, never another durable
+ *               verdict."
+ *
+ * NEGOTIATION_HEADER was defined and exported by both SDKs and sent by neither, and
+ * UnavailableError was exported and thrown nowhere while GatewayError carried its exact
+ * documented meaning.
+ */
+describe("S4-WP-22 negotiation and the UNAVAILABLE outcome", () => {
+  it("N1 asks for the contract on every call", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(makeOkResponse());
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
+    await gw.toolCall("any");
+    const init = fakeFetch.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers[NEGOTIATION_HEADER]).toBe(CANONICAL_ANSWER_VERSION);
+  });
+
+  it("N1b NON-VACUITY: the header map carries more than the one asserted header", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(makeOkResponse());
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
+    await gw.toolCall("any");
+    const init = fakeFetch.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("N2 a transport failure is UNAVAILABLE, not a denial", async () => {
+    const fakeFetch = vi.fn().mockRejectedValue(new TypeError("ECONNREFUSED"));
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
+    await expect(gw.toolCall("any")).rejects.toBeInstanceOf(UnavailableError);
+  });
+
+  it("N3 an unreadable answer is UNAVAILABLE", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(
+      new Response("not json at all", { status: 200 }),
+    );
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
+    await expect(gw.toolCall("any")).rejects.toBeInstanceOf(UnavailableError);
+  });
+
+  it("N4 an ANSWERED error is NOT unavailable — the distinction the ruling preserves", async () => {
+    const fakeFetch = vi.fn().mockResolvedValue(
+      new Response("upstream down", { status: 503 }),
+    );
+    const gw = new Gateway("http://gw.example", {
+      route: ROUTE_MCP_GOVERNED, fetch: fakeFetch as typeof fetch });
+    await expect(gw.toolCall("any")).rejects.toBeInstanceOf(GatewayError);
+    await expect(gw.toolCall("any")).rejects.not.toBeInstanceOf(UnavailableError);
+  });
+
+  it("N5 COMPATIBILITY: the ruled outcome is still a GatewayError", () => {
+    // What let the outcome be thrown at all without a breaking change, asserted rather than
+    // assumed — the benefit disappears if the hierarchy is ever flattened.
+    expect(new UnavailableError("x")).toBeInstanceOf(GatewayError);
   });
 });
