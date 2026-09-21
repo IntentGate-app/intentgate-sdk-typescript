@@ -17,10 +17,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Node 18 is the floor (when native fetch landed). Test the
-        # current LTS lineage to catch ESM / fetch / crypto regressions
-        # across the runtimes consumers will actually use.
-        node: ["18", "20", "22"]
+        # Node 18 is still the declared floor (it is where native fetch landed) and is still
+        # an explicit CI support target -- it moved to the `smoke-node18` job below, NOT out
+        # of coverage. vitest 4 declares `engines: ^20 || ^22 || >=24`, so from 8b31fdd
+        # (2026-05-23, the esbuild CVE bump) the runner itself refused to start on 18 and this
+        # matrix was red for four months without testing one line of SDK code. See EST-F-162.
+        #
+        # The resolution is NOT to narrow `engines` and NOT to downgrade vitest. It is to run
+        # vitest where vitest runs, and to prove the Node 18 promise against the built bundle.
+        node: ["20", "22"]
     steps:
       - uses: actions/checkout@v4
 
@@ -43,3 +48,39 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  smoke-node18:
+    name: Node 18 smoke (built bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # BUILD ON A SUPPORTED NODE, through the normal build path, unchanged. What Node 18 is
+      # asked about is the DISTRIBUTABLE a consumer installs -- not `src/`, not a second
+      # implementation, and not a build that was special-cased to get green.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # THEN SWITCH THE RUNTIME UNDER THE SAME BUNDLE. Nothing is installed or rebuilt here.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Record the runtime this proof is about
+        run: node --version
+
+      # Node 18's own built-in test runner. No dependency is added to this package for it.
+      # If this fails, the BUILT SDK does not work on a runtime `engines` promises to support,
+      # and that is a product compatibility failure to record -- never a reason to weaken an
+      # assertion in tests-node18/.
+      - name: Node 18 smoke against the built bundle
+        run: node --test tests-node18/smoke.test.mjs
