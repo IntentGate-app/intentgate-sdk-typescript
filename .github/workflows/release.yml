@@ -18,6 +18,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # EST-F-163 · OWNER RULING E = GATE, 2026-09-22.
+  #
+  # A tag used to publish with nothing between it and npm but this file's own `build` job.
+  # That job does run typecheck, lint and test -- but only on Node 20, and it never ran the
+  # Node 20/22 matrix or the Node 18 smoke that `ci.yml` runs. Three versions shipped over a
+  # red suite before anyone noticed, and this is the gap that allowed it.
+  #
+  # The suite is CALLED, not copied. `publish-npm` needs it, so a red suite stops a release.
+  suite:
+    name: CI suite (the gate)
+    uses: ./.github/workflows/ci.yml
+
   build:
     name: Build dist
     runs-on: ubuntu-latest
@@ -80,7 +92,10 @@ jobs:
 
   publish-npm:
     name: Publish to npm (trusted publishing)
-    needs: build
+    # BOTH, and the order matters to nobody but the reader: `build` proves the tag matches
+    # package.json and the bundle builds; `suite` proves the code works on every supported
+    # runtime, Node 18 included. A release needs both to be true.
+    needs: [build, suite]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # npm trusted publishing requires:

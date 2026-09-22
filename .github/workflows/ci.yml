@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # EST-F-163, owner ruling E = GATE (2026-09-22). `release.yml` CALLS this workflow rather
+  # than copying its steps, so the suite a release is gated on is the same suite by identity
+  # and cannot drift from it. A second copy of the tests in release.yml would pass review and
+  # then diverge, which is the defect this estate keeps finding in other forms.
+  workflow_call:
 
 permissions:
   contents: read
